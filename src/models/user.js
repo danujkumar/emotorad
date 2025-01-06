@@ -1,9 +1,8 @@
 const mongoose = require("mongoose");
 const validator = require("validator");
-const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema({
-  password: { type: String, required: true },
+  product: { type: String, required: true },
   phone: { 
     type: String, 
     required: true, 
@@ -16,7 +15,6 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     validate(value) {
       if (!validator.isEmail(value)) {
         throw new Error("Invalid Email address");
@@ -24,7 +22,7 @@ const userSchema = new mongoose.Schema({
     },
   },
   linkedId: {
-    type: mongoose.Schema.Types.Number,
+    type: mongoose.Schema.Types.String,
     default: null,
   },
   linkPrecedence: {
@@ -45,19 +43,5 @@ const userSchema = new mongoose.Schema({
     default: null,
   },
 });
-
-userSchema.pre("save", async function (next) {
-    
-  this.updatedAt = Date.now();
-  if (!this.isModified("password")) {
-    next();
-  }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-});
-
-userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
-};
 
 module.exports =  new mongoose.model("user", userSchema);
