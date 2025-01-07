@@ -36,6 +36,9 @@ const identify = asyncHandler(async (req, res) => {
         primaryContactId: pc._id,
         contactPairs: [{ email: pc.email, phone: pc.phone }],
         secondaryContactIds: pc.secondaryContacts,
+        createdAt: pc.createdAt,
+        updatedAt: pc.updatedAt,
+        deletedAt: pc.deletedAt,
       });
     } else {
       //If email or phone number anyone changes then primary become secondary and new item become primary.
@@ -61,6 +64,9 @@ const identify = asyncHandler(async (req, res) => {
         primaryContactId: newContact._id,
         contactPairs: [{ email: newContact.email, phone: newContact.phone }],
         secondaryContactIds: [pc._id],
+        createdAt: pc.createdAt,
+        updatedAt: newContact.updatedAt,
+        deletedAt: pc.deletedAt,
       });
     }
   }
@@ -76,6 +82,7 @@ const identify = asyncHandler(async (req, res) => {
     }
 
     //First case: If both phone and email matches
+    let primaryC, newE, newP, secondaryC, update;
     if(sec.email === e && sec.phone === p)
     {
         const newContact = await User.create({
@@ -87,10 +94,15 @@ const identify = asyncHandler(async (req, res) => {
         })
     
         //Old secondary becomes primary
+        update = newContact.createdAt;
         sec.linkPrecedence = "primary"
         sec.secondaryContacts = oldP.secondaryContacts || [];
         sec.secondaryContacts.push(newContact._id);
         sec.secondaryContacts.push(oldP._id);
+        newE = e;
+        newP = p;
+        secondaryC = sec.secondaryContacts;
+        primaryC = sec._id;
         sec.save();
     }
     else
@@ -105,9 +117,14 @@ const identify = asyncHandler(async (req, res) => {
         })
 
         //Old secondary becomes primary
+        update = newContact.createdAt;
         newContact.secondaryContacts = oldP.secondaryContacts || [];
         newContact.secondaryContacts.push(sec._id);
         newContact.secondaryContacts.push(oldP._id);
+        primaryC = newContact._id;
+        secondaryC = newContact.secondaryContacts;
+        newE = newContact.email;
+        newP = newContact.phone;
         newContact.save();
     }
 
@@ -115,6 +132,15 @@ const identify = asyncHandler(async (req, res) => {
      oldP.linkPrecedence = "secondary"
      oldP.secondaryContacts = [];
      oldP.save();
+    
+    res.status(201).json({
+      primaryContactId: primaryC,
+      contactPairs: [{ email: newE, phone: newP }],
+      secondaryContactIds: secondaryC,
+      createdAt: oldP.createdAt,
+      updatedAt: update,
+      deletedAt: null,
+    })
 
   }
    else {
@@ -131,6 +157,9 @@ const identify = asyncHandler(async (req, res) => {
       primaryContactId: nc._id,
       contactPairs: [{ email: nc.email, phone: nc.phone }],
       secondaryContactIds: [],
+      createdAt: nc.createdAt,
+      updatedAt: nc.updatedAt,
+      deletedAt: nc.deletedAt,
     });
   }
 });
