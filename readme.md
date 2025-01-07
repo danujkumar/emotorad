@@ -66,7 +66,7 @@ This service manages user contact information by linking multiple email and phon
 
 ## Deployment
 
-The application is deployed at: [Deployment Link](deployment-url)
+The application is deployed at: [Deployment Link](https://emotorad.onrender.com)
 
 ## Running Tests
 

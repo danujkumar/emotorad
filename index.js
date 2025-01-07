@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const { connectToDb, getDb } = require('./src/configuration/config');
 const port = process.env.PORT || 3000;
@@ -29,5 +30,5 @@ app.use(errorHandler)
 
 //This is the starting point of our application
 app.get('/', (req, res) => {
-    res.send('This is the home page');
+    res.send('Welcome to emotorad backend system !!');
 });
