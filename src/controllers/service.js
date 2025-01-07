@@ -1,82 +1,84 @@
-const asyncHandler=require("express-async-handler")
-const User=require("../models/user.js")
+const asyncHandler = require("express-async-handler");
+const User = require("../models/user.js");
 
 const identify = asyncHandler(async (req, res) => {
-  try {
-      const { email: e, phone: p, product } = req.body;
-      const em = await User.findOne({ email: e });
-      const pm = await User.findOne({ phone: p });
-      let pc = em?.linkPrecedence === 'primary' ? em : pm || em;
-      
+  const { email: e, phone: p, product } = req.body;
 
-      if (pc) {
-          if (pc.linkPrecedence === 'primary' && (em || pm)) {
-              //If email or phone number anyone changes then primary become secondary and new item become primary.
-              pc.linkPrecedence = 'secondary';
-              await pc.save(); 
+  const pc = await User.findOne({
+    $or: [{ email: e }, { phone: p }],
+    linkPrecedence: "primary",
+  });
 
-              const newContact = await User.create({
-                  email: e,
-                  phone: p,
-                  product,
-                  linkedId: pc._id,
-                  linkPrecedence: 'primary',
-              });
+  const sec = await User.findOne({
+    $or: [{email: e}, {phone: p}],
+    linkPrecedence: "secondary"
+  })
 
-              newContact.secondaryContacts = newContact.secondaryContacts || []
-              newContact.secondaryContacts.push(pc._id);
-              await newContact.save();
+  if (pc) {
+    const em = pc.email;
+    const pm = pc.phone;
 
-              
-              return res.status(200).json({
-                  primaryContactId: newContact._id,
-                  contactPairs: [
-                      { email: newContact.email, phone: newContact.phone }
-                  ],
-                  secondaryContactIds: [pc._id],
-              });
-          }
-          else
-          {
-            //If both are same then create new item and make it secondary and reference it with primary
-            const sc = await User.create({
-              email: e,
-              phone: p,
-              product,
-              linkedId: pc._id,
-              linkPrecedence: 'secondary',
-            });          
+    if (pc.linkPrecedence === "primary" && em === e && pm === p) {
+      //If both are same then create new item and make it secondary and reference it with primary
+      const sc = await User.create({
+        email: e,
+        phone: p,
+        product,
+        linkedId: pc._id,
+        linkPrecedence: "secondary",
+      });
 
-            pc.secondaryContacts = pc.secondaryContacts || [];
-            pc.secondaryContacts.push(sc._id);
-            await pc.save(); 
+      pc.secondaryContacts = pc.secondaryContacts || [];
+      pc.secondaryContacts.push(sc._id);
+      await pc.save();
 
-            return res.status(200).json({
-                primaryContactId: pc._id,
-                contactPairs: [
-                    { email: pc.email, phone: pc.phone }
-                ],
-                secondaryContactIds: pc.secondaryContacts,
-            });
-          }
-      }
-      else
-      {
+      return res.status(200).json({
+        primaryContactId: pc._id,
+        contactPairs: [{ email: pc.email, phone: pc.phone }],
+        secondaryContactIds: pc.secondaryContacts,
+      });
+    } else {
+      //If email or phone number anyone changes then primary become secondary and new item become primary.
+      pc.linkPrecedence = "secondary";
 
-        //If new information with new email id or phone number come then make all together new data
-        const nc = await User.create({ email: e, phone: p, product, linkedId: null, linkPrecedence: 'primary' });
-        res.status(201).json({
-            primaryContactId: nc._id,
-            contactPairs: [
-                { email: nc.email, phone: nc.phone }
-            ],
-            secondaryContactIds: [],
-        });
-      }
-  } catch (err) {
-      res.status(400).json({ error: err.message });
+      const newContact = await User.create({
+        email: e,
+        phone: p,
+        product,
+        linkedId: null,
+        linkPrecedence: "primary",
+      });
+
+      pc.linkedId = newContact._id;
+
+      newContact.secondaryContacts = pc.secondaryContacts || [];
+      newContact.secondaryContacts.push(pc._id);
+      pc.secondaryContacts = [];
+      await pc.save();
+      await newContact.save();
+
+      return res.status(200).json({
+        primaryContactId: newContact._id,
+        contactPairs: [{ email: newContact.email, phone: newContact.phone }],
+        secondaryContactIds: [pc._id],
+      });
+    }
+  } else {
+    //If the information is secondary then do the same by making it primary and other thing secondary
+    //If new information with new email id or phone number come then make all together new data
+    const nc = await User.create({
+      email: e,
+      phone: p,
+      product,
+      linkedId: null,
+      linkPrecedence: "primary",
+    });
+    res.status(201).json({
+      primaryContactId: nc._id,
+      contactPairs: [{ email: nc.email, phone: nc.phone }],
+      secondaryContactIds: [],
+    });
   }
 });
 
-
-module.exports={identify}
+module.exports = { identify };

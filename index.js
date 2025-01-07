@@ -5,6 +5,7 @@ const app = express();
 const cookieParser = require("cookie-parser");
 const userRouter = require("./src/routes/users.js");
 const cors = require('cors');
+const errorHandler = require('./src/middleware/authError.js');
 let db;
 
 const server = require('http').createServer(app);
@@ -24,6 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(userRouter)
+app.use(errorHandler)
 
 app.get('/', (req, res) => {
     res.send('This is the home page');
