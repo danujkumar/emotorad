@@ -63,7 +63,61 @@ const identify = asyncHandler(async (req, res) => {
         secondaryContactIds: [pc._id],
       });
     }
-  } else {
+  }
+  else if(sec) {
+    //Here both email and phone are different but it is present in the database with secondary so we have to treat 
+    // it as same user
+
+    let oldP = await User.findById(sec.linkedId);
+    while(oldP.linkPrecedence != "primary")
+    {
+        console.log(sec)
+        oldP = await User.findById(oldP.linkedId);
+    }
+
+    //First case: If both phone and email matches
+    if(sec.email === e && sec.phone === p)
+    {
+        const newContact = await User.create({
+            email : e, 
+            phone : p,
+            product, 
+            linkedId: sec._id,
+            linkPrecedence: "secondary"
+        })
+    
+        //Old secondary becomes primary
+        sec.linkPrecedence = "primary"
+        sec.secondaryContacts = oldP.secondaryContacts || [];
+        sec.secondaryContacts.push(newContact._id);
+        sec.secondaryContacts.push(oldP._id);
+        sec.save();
+    }
+    else
+    {
+        //Second case: If anyone matches then that becomes primary again and old primary becomes secondary
+        const newContact = await User.create({
+            email : e, 
+            phone : p,
+            product, 
+            linkedId: null,
+            linkPrecedence: "primary"
+        })
+
+        //Old secondary becomes primary
+        newContact.secondaryContacts = oldP.secondaryContacts || [];
+        newContact.secondaryContacts.push(sec._id);
+        newContact.secondaryContacts.push(oldP._id);
+        newContact.save();
+    }
+
+     //Old primary becomes secondary
+     oldP.linkPrecedence = "secondary"
+     oldP.secondaryContacts = [];
+     oldP.save();
+
+  }
+   else {
     //If the information is secondary then do the same by making it primary and other thing secondary
     //If new information with new email id or phone number come then make all together new data
     const nc = await User.create({
