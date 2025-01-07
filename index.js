@@ -29,5 +29,5 @@ app.use(userRouter)
 app.use(errorHandler)
 
 app.get('/', (req, res) => {
-    res.send('This is the home page');
+    res.send('Welcome to emotorad backend system !!');
 });
