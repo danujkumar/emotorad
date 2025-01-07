@@ -27,6 +27,7 @@ app.use(cookieParser());
 app.use(userRouter)
 app.use(errorHandler)
 
+//This is the starting point of our application
 app.get('/', (req, res) => {
     res.send('This is the home page');
 });

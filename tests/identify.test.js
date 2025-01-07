@@ -2,6 +2,7 @@ const request = require('supertest');
 const app = require('../index'); 
 const User = require('../src/models/user'); 
 
+//This is the automatic api testing tool JEST for testing the apis with different values by simulating it
 jest.mock('../src/models/user');
 
 describe('Identify API', () => {

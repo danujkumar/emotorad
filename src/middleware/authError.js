@@ -1,3 +1,5 @@
+//This is centralized error handling mechanism to handle all types of error and report normal error to the end users
+
 const errorHandler = (err, req, res, next) => {
   console.error("Error:", err.message);
 
