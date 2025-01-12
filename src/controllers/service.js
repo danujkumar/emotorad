@@ -11,10 +11,8 @@ const hashUpdater = async (id, newId ,email, phone, session)=>{
         primary: newId
       },
       $addToSet: {
-        phone: { $each: [phone] } 
-      },
-      $addToSet:{
-        email: {$each: [email]}
+        phone: phone, // Adds the phone directly
+        email: email  // Adds the email directly
       }
     }
   ).session(session)
@@ -22,7 +20,7 @@ const hashUpdater = async (id, newId ,email, phone, session)=>{
 
 //This function is used to create new entry
 const saveDetails = async (email, phone, product, linkedId, linkPrecedence, session) => {
-    return await User.create([{ email, 
+    return await User.create([{email, 
       phone, 
       product, 
       linkedId, 
@@ -35,13 +33,11 @@ const changeofSecondary = async (oldS, newS, additional, session) => {
   await User.updateOne ({_id: newS._id}, {
     $set:{
       linkPrecedence: "primary",
-      secondaryContacts : oldS.secondaryContacts || [],
     },
-    $addToSet:{
-      secondaryContacts: {$each : [additional != null ? additional._id : [], oldS._id ] } 
-    }
-  }).session(session)
-
+      $addToSet: {
+        secondaryContacts: { $each: [...(oldS.secondaryContacts || []), additional, oldS._id].filter(Boolean) }
+      }
+  }).session(session)  
   await User.updateOne({_id:oldS._id}, {
     $set:{
       linkPrecedence : "secondary",
@@ -87,10 +83,10 @@ const identify = asyncHandler(async (req, res) => {
     if (pc.linkPrecedence === "primary" && em === e && pm === p) {
       //If both are same then create new item and make it secondary and reference it with primary
       const sc = await saveDetails(e, p, product, pc._id, "secondary", session)
-
-      await secondaryUpdate(pc, sc, session);
-
       
+      await secondaryUpdate(pc, sc[0], session);
+      
+      await session.commitTransaction();
 
       return res.status(200).json({
         primaryContactId: pc._id,
@@ -105,18 +101,19 @@ const identify = asyncHandler(async (req, res) => {
 
       const newContact = await saveDetails(e, p, product, null, "primary", session)
 
-      await hashUpdater(pc._id, newContact._id, newContact.email, newContact.phone, session)
+      
+      await hashUpdater(pc._id, newContact[0]._id, newContact[0].email, newContact[0].phone, session)
+      
+      await changeofSecondary(pc, newContact[0], null, session);
 
-      await changeofSecondary(pc, newContact, null, session);
-
-      // await session.commitTransaction();
+      await session.commitTransaction();
 
       return res.status(200).json({
-        primaryContactId: newContact._id,
-        contactPairs: [{ email: newContact.email, phone: newContact.phone }],
+        primaryContactId: newContact[0]._id,
+        contactPairs: [{ email: newContact[0].email, phone: newContact[0].phone }],
         secondaryContactIds: [pc._id],
         createdAt: pc.createdAt,
-        updatedAt: newContact.updatedAt,
+        updatedAt: newContact[0].updatedAt,
         deletedAt: pc.deletedAt,
       });
     }
@@ -138,10 +135,10 @@ const identify = asyncHandler(async (req, res) => {
     if(sec.email === e && sec.phone === p)
     {
         const newContact = await saveDetails(e, p, product, sec._id, "secondary", session)    
-        await changeofSecondary(oldP, sec, newContact, session)
+        await changeofSecondary(oldP, sec, newContact[0]._id, session)
         await hashUpdater(oldP._id, sec._id, e, p, session);
         
-        update = newContact.createdAt;
+        update = newContact[0].createdAt;
         secondaryC = sec.secondaryContacts;
         primaryC = sec._id;
         newE = e;
@@ -151,20 +148,22 @@ const identify = asyncHandler(async (req, res) => {
     {
         //Second case: If anyone matches then that becomes primary again and old primary becomes secondary
 
+        console.log("This condition will execute here...")
+
         const newContact = await saveDetails(e, p, product, null, "primary", session)
 
         //Old secondary becomes primary
-        await changeofSecondary(oldP, newContact, sec, session)
-        await hashUpdater(oldP._id, newContact._id, newContact.email, newContact.phone, session)
+        await changeofSecondary(oldP, newContact[0], sec._id, session)
+        await hashUpdater(oldP._id, newContact[0]._id, newContact[0].email, newContact[0].phone, session)
 
-        primaryC = newContact._id;
-        secondaryC = newContact.secondaryContacts;
-        update = newContact.createdAt;
-        newE = newContact.email;
-        newP = newContact.phone;
+        primaryC = newContact[0]._id;
+        secondaryC = newContact[0].secondaryContacts;
+        update = newContact[0].createdAt;
+        newE = newContact[0].email;
+        newP = newContact[0].phone;
     }
 
-    // await session.commitTransaction()
+    await session.commitTransaction()
     
     res.status(201).json({
       primaryContactId: primaryC,
@@ -182,25 +181,22 @@ const identify = asyncHandler(async (req, res) => {
     const nc = await saveDetails(e, p, product, null, "primary", session);
 
     await Hash.create([{
-      primary: nc._id,
-      email:[nc.email],
-      phone:[nc.phone]
-    }], session)
+      primary: nc[0]._id,
+      email:[nc[0].email],
+      phone:[nc[0].phone]
+    }], {session})
 
-    // await session.commitTransaction()
+    await session.commitTransaction()
+
     res.status(201).json({
-      primaryContactId: nc._id,
-      contactPairs: [{ email: nc.email, phone: nc.phone }],
+      primaryContactId: nc[0]._id,
+      contactPairs: [{ email: nc[0].email, phone: nc[0].phone }],
       secondaryContactIds: [],
-      createdAt: nc.createdAt,
-      updatedAt: nc.updatedAt,
-      deletedAt: nc.deletedAt,
+      createdAt: nc[0].createdAt,
+      updatedAt: nc[0].updatedAt,
+      deletedAt: nc[0].deletedAt,
     });
   }
-
-  console.log("Is running...")
-
-  await session.commitTransaction();
 
 } catch(error) {
   console.log(error)
