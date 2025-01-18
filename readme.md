@@ -19,7 +19,7 @@ This service manages user contact information by linking multiple email and phon
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd contact-management-service
+   cd emotorad
    ```
 2. Install dependencies:
    ```bash
